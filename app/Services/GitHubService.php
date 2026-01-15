@@ -5,18 +5,57 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * Service GitHubService - Integration avec l'API GitHub.
+ * 
+ * Recupere les repositories, profil et informations GitHub
+ * de l'utilisateur configure dans les variables d'environnement.
+ * 
+ * Les donnees sont mises en cache pour optimiser les performances
+ * et respecter les limites de l'API GitHub.
+ *
+ * @package App\Services
+ * @see https://docs.github.com/en/rest
+ */
 class GitHubService
 {
+    /**
+     * URL de base de l'API GitHub.
+     *
+     * @var string
+     */
     private string $baseUrl = 'https://api.github.com';
+
+    /**
+     * Token d'authentification GitHub (optionnel).
+     *
+     * @var string|null
+     */
     private ?string $token;
+
+    /**
+     * Nom d'utilisateur GitHub.
+     *
+     * @var string
+     */
     private string $username;
 
+    /**
+     * Constructeur - charge la configuration.
+     */
     public function __construct()
     {
         $this->token = config('services.github.token');
         $this->username = config('services.github.username');
     }
 
+    /**
+     * Recupere la liste des repositories avec pagination.
+     *
+     * @param int $perPage Nombre par page
+     * @param int $page Numero de page
+     * @return array Liste des repositories formates
+     */
     public function getRepositories(int $perPage = 30, int $page = 1): array
     {
         $cacheKey = "github_repos_{$this->username}_{$perPage}_{$page}";
@@ -37,6 +76,12 @@ class GitHubService
         });
     }
 
+    /**
+     * Recupere un repository specifique avec son README.
+     *
+     * @param string $name Nom du repository
+     * @return array|null Repository formate ou null
+     */
     public function getRepository(string $name): ?array
     {
         $cacheKey = "github_repo_{$this->username}_{$name}";
@@ -58,9 +103,16 @@ class GitHubService
         });
     }
 
+    /**
+     * Recupere le contenu du README d'un repository.
+     *
+     * @param string $repoName Nom du repository
+     * @return string|null Contenu du README decode ou null
+     */
     public function getReadme(string $repoName): ?string
     {
         try {
+            // Tentative branche main
             $response = Http::withHeaders($this->getHeaders())
                 ->get("{$this->baseUrl}/repos/{$this->username}/{$repoName}/readme", [
                     'ref' => 'main',
@@ -71,6 +123,7 @@ class GitHubService
                 return base64_decode($content);
             }
 
+            // Fallback branche master
             $response = Http::withHeaders($this->getHeaders())
                 ->get("{$this->baseUrl}/repos/{$this->username}/{$repoName}/readme", [
                     'ref' => 'master',
@@ -87,6 +140,12 @@ class GitHubService
         return null;
     }
 
+    /**
+     * Recupere les langages d'un repository avec pourcentages.
+     *
+     * @param string $repoName Nom du repository
+     * @return array Langages avec pourcentages
+     */
     public function getLanguages(string $repoName): array
     {
         $cacheKey = "github_languages_{$this->username}_{$repoName}";
@@ -119,6 +178,11 @@ class GitHubService
         });
     }
 
+    /**
+     * Recupere le profil de l'utilisateur GitHub.
+     *
+     * @return array Profil formate
+     */
     public function getUserProfile(): array
     {
         $cacheKey = "github_profile_{$this->username}";
@@ -146,6 +210,12 @@ class GitHubService
         });
     }
 
+    /**
+     * Recupere les repositories epingles via l'API GraphQL.
+     * Fallback sur les 6 premiers repositories si pas de token.
+     *
+     * @return array Repositories epingles
+     */
     public function getPinnedRepositories(): array
     {
         $cacheKey = "github_pinned_{$this->username}";
@@ -201,6 +271,13 @@ class GitHubService
         });
     }
 
+    /**
+     * Effectue une requete HTTP vers l'API GitHub.
+     *
+     * @param string $endpoint Endpoint API
+     * @param array $query Parametres de requete
+     * @return array|null Reponse JSON ou null
+     */
     private function makeRequest(string $endpoint, array $query = []): ?array
     {
         try {
@@ -217,6 +294,11 @@ class GitHubService
         return null;
     }
 
+    /**
+     * Construit les headers HTTP pour les requetes.
+     *
+     * @return array Headers
+     */
     private function getHeaders(): array
     {
         $headers = [
@@ -231,6 +313,12 @@ class GitHubService
         return $headers;
     }
 
+    /**
+     * Formate les donnees brutes d'un repository.
+     *
+     * @param array $repo Donnees brutes
+     * @return array Repository formate
+     */
     private function formatRepository(array $repo): array
     {
         return [

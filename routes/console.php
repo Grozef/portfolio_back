@@ -1,5 +1,15 @@
 <?php
 
-use Illuminate\Support\Facades\Schedule;
+/**
+ * Routes console (commandes Artisan).
+ *
+ * @package Routes
+ */
 
-// Schedule::command('inspire')->hourly();
+use Illuminate\Support\Facades\Schedule;
+use App\Models\LoginAttempt;
+
+// Nettoyage quotidien des tentatives de connexion anciennes
+Schedule::call(function () {
+    LoginAttempt::cleanup();
+})->daily();

@@ -1,11 +1,32 @@
 <?php
 
+/**
+ * Configuration des services externes.
+ * 
+ * @package Config
+ */
+
 return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | GitHub API
+    |--------------------------------------------------------------------------
+    | Configuration pour l'integration avec l'API GitHub.
+    | Le token est optionnel mais recommande pour eviter les limites de rate.
+    | Sans token: 60 requetes/heure
+    | Avec token: 5000 requetes/heure
+    */
     'github' => [
         'username' => env('GITHUB_USERNAME', ''),
         'token' => env('GITHUB_TOKEN', ''),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Services tiers Laravel
+    |--------------------------------------------------------------------------
+    */
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],
@@ -22,4 +43,5 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+
 ];
