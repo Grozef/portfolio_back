@@ -1,23 +1,9 @@
 <?php return array (
-  'laravel/pail' => 
+  'laravel/sanctum' => 
   array (
     'providers' => 
     array (
-      0 => 'Laravel\\Pail\\PailServiceProvider',
-    ),
-  ),
-  'laravel/sail' => 
-  array (
-    'providers' => 
-    array (
-      0 => 'Laravel\\Sail\\SailServiceProvider',
-    ),
-  ),
-  'laravel/tinker' => 
-  array (
-    'providers' => 
-    array (
-      0 => 'Laravel\\Tinker\\TinkerServiceProvider',
+      0 => 'Laravel\\Sanctum\\SanctumServiceProvider',
     ),
   ),
   'nesbot/carbon' => 
@@ -25,13 +11,6 @@
     'providers' => 
     array (
       0 => 'Carbon\\Laravel\\ServiceProvider',
-    ),
-  ),
-  'nunomaduro/collision' => 
-  array (
-    'providers' => 
-    array (
-      0 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
     ),
   ),
   'nunomaduro/termwind' => 
