@@ -2,10 +2,10 @@
 
 /**
  * Configuration de l'administrateur du portfolio.
- * 
+ *
  * Ces valeurs sont utilisees par le seeder AdminSeeder
  * pour creer le compte administrateur.
- * 
+ *
  * IMPORTANT: Modifier ces valeurs dans le fichier .env
  * avant de deployer en production!
  *
@@ -20,7 +20,7 @@ return [
     |--------------------------------------------------------------------------
     | Email utilise pour la connexion admin.
     */
-    'email' => env('ADMIN_EMAIL', 'admin@example.com'),
+    'email' => env('ADMIN_EMAIL', 'batman@gmail.com'),
 
     /*
     |--------------------------------------------------------------------------
@@ -29,6 +29,6 @@ return [
     | Mot de passe pour la connexion admin.
     | ATTENTION: Changer cette valeur en production!
     */
-    'password' => env('ADMIN_PASSWORD', 'change-me-in-production'),
+    'password' => env('ADMIN_PASSWORD', 'robin', 'change-me-in-production'),
 
 ];
