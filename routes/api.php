@@ -19,6 +19,7 @@ use App\Http\Controllers\GitHubController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\CarouselImageController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -114,6 +115,34 @@ Route::prefix('v1')->group(function () {
         Route::patch('/{message}/read', [MessageController::class, 'markAsRead']);
         Route::patch('/{message}/unread', [MessageController::class, 'markAsUnread']);
         Route::delete('/{message}', [MessageController::class, 'destroy']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Routes Carousel (images du carrousel)
+    |--------------------------------------------------------------------------
+    | Route publique:
+    | GET /carousel - Liste des images actives
+    |
+    | Routes protegees (auth requise):
+    | POST   /carousel         - Ajouter une image
+    | PUT    /carousel/{id}    - Modifier une image
+    | DELETE /carousel/{id}    - Supprimer une image
+    | POST   /carousel/reorder - Reordonner les images
+    */
+    Route::prefix('carousel')->group(function () {
+        // Public: images actives uniquement
+        Route::get('/', [CarouselImageController::class, 'index']);
+        Route::get('/{carouselImage}', [CarouselImageController::class, 'show']);
+
+        // Protege: CRUD admin
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::post('/upload', [CarouselImageController::class, 'upload']);
+            Route::post('/', [CarouselImageController::class, 'store']);
+            Route::put('/{carouselImage}', [CarouselImageController::class, 'update']);
+            Route::delete('/{carouselImage}', [CarouselImageController::class, 'destroy']);
+            Route::post('/reorder', [CarouselImageController::class, 'reorder']);
+        });
     });
 
     /*
