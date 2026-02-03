@@ -2,7 +2,7 @@
 
 /**
  * Configuration des services externes.
- * 
+ *
  * @package Config
  */
 
@@ -42,6 +42,15 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+    ],
+    /*
+    |--------------------------------------------------------------------------
+    | Google Books API
+    |--------------------------------------------------------------------------
+    */
+
+    'google_books' => [
+        'api_key' => env('GOOGLE_BOOKS_API_KEY'),
     ],
 
 ];

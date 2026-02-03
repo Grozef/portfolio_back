@@ -4,40 +4,42 @@ namespace App\Http\Controllers;
 
 use App\Models\Book;
 use App\Services\OpenLibraryService;
+use App\Services\GoogleBooksService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
- * Controleur BookController - Gestion des livres.
+ * Book Controller - Book collection management
  *
- * CORRECTIONS APPLIQUEES:
- * - Ajout de la pagination (15 livres par page)
- * - Validation ISBN amelioree avec regex
- * - Cache refresh optimise (pas de refresh synchrone sur la liste)
+ * IMPROVEMENTS:
+ * - Multi-provider ISBN search (OpenLibrary + Google Books)
+ * - Better French book coverage
+ * - Automatic provider fallback
+ * - Source tracking for debugging
  *
  * @package App\Http\Controllers
  */
 class BookController extends Controller
 {
     private OpenLibraryService $openLibrary;
+    private GoogleBooksService $googleBooks;
 
-    public function __construct(OpenLibraryService $openLibrary)
-    {
+    /**
+     * Constructor with dependency injection
+     */
+    public function __construct(
+        OpenLibraryService $openLibrary,
+        GoogleBooksService $googleBooks
+    ) {
         $this->openLibrary = $openLibrary;
+        $this->googleBooks = $googleBooks;
     }
 
     /**
-     * Liste tous les livres avec filtres et pagination.
-     *
-     * CORRECTION: Ajout de la pagination pour eviter les problemes de performance.
+     * List all books with filters and pagination
      *
      * @param Request $request
-     * @return JsonResponse Liste paginee des livres
-     *
-     * @queryParam status string Filtrer par statut (read, reading, to-read)
-     * @queryParam featured boolean Filtrer les livres mis en avant
-     * @queryParam per_page int Nombre de livres par page (defaut: 15)
+     * @return JsonResponse Paginated books list
      */
     public function index(Request $request): JsonResponse
     {
@@ -67,7 +69,7 @@ class BookController extends Controller
     }
 
     /**
-     * Affiche un livre specifique.
+     * Show specific book
      */
     public function show(Book $book): JsonResponse
     {
@@ -80,7 +82,7 @@ class BookController extends Controller
     }
 
     /**
-     * Liste les livres mis en avant (max 6).
+     * List featured books (max 6)
      */
     public function featured(): JsonResponse
     {
@@ -94,7 +96,7 @@ class BookController extends Controller
     }
 
     /**
-     * Retourne les statistiques de la bibliotheque.
+     * Get library statistics
      */
     public function stats(): JsonResponse
     {
@@ -112,11 +114,11 @@ class BookController extends Controller
     }
 
     /**
-     * Ajoute un nouveau livre.
+     * Create new book
      *
-     * CORRECTION: Validation ISBN amelioree avec regex.
-     * - ISBN-10: 10 chiffres (le dernier peut etre X)
-     * - ISBN-13: 13 chiffres
+     * Tries to fetch book data from multiple providers:
+     * 1. OpenLibrary (free, no limits)
+     * 2. Google Books (better French coverage)
      */
     public function store(Request $request): JsonResponse
     {
@@ -142,9 +144,9 @@ class BookController extends Controller
         $author = $validated['author'] ?? null;
         $coverUrl = $validated['cover_url'] ?? null;
 
-        // Tentative de recuperation via ISBN si fourni
+        // Fetch from providers if ISBN provided
         if (!empty($validated['isbn'])) {
-            // Verification unicite ISBN
+            // Check ISBN uniqueness
             if (Book::where('isbn', $validated['isbn'])->exists()) {
                 return response()->json([
                     'success' => false,
@@ -152,7 +154,8 @@ class BookController extends Controller
                 ], 422);
             }
 
-            $cachedData = $this->openLibrary->getBookByIsbn($validated['isbn']);
+            // Try to fetch from multiple providers
+            $cachedData = $this->fetchBookDataFromProviders($validated['isbn']);
 
             if ($cachedData) {
                 $title = $cachedData['title'];
@@ -161,13 +164,13 @@ class BookController extends Controller
             } elseif (!$title) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'ISBN not found in Open Library. Please provide title manually.',
+                    'message' => 'ISBN not found in any provider (OpenLibrary, Google Books). Please provide title manually.',
                     'require_manual' => true,
                 ], 422);
             }
         }
 
-        // Verification qu'on a au moins un titre
+        // Require title
         if (!$title) {
             return response()->json([
                 'success' => false,
@@ -175,7 +178,7 @@ class BookController extends Controller
             ], 422);
         }
 
-        // Creation du livre
+        // Create book
         $book = Book::create([
             'isbn' => $validated['isbn'] ?? null,
             'title' => $title,
@@ -193,11 +196,12 @@ class BookController extends Controller
             'success' => true,
             'data' => $book,
             'from_api' => (bool) $cachedData,
+            'source' => $cachedData['source'] ?? null,
         ], 201);
     }
 
     /**
-     * Met a jour un livre existant.
+     * Update existing book
      */
     public function update(Request $request, Book $book): JsonResponse
     {
@@ -221,7 +225,7 @@ class BookController extends Controller
     }
 
     /**
-     * Supprime un livre.
+     * Delete book
      */
     public function destroy(Book $book): JsonResponse
     {
@@ -234,7 +238,9 @@ class BookController extends Controller
     }
 
     /**
-     * Force le rafraichissement du cache Open Library.
+     * Force cache refresh from all providers
+     *
+     * Tries OpenLibrary first, then Google Books
      */
     public function refreshCache(Book $book): JsonResponse
     {
@@ -245,7 +251,7 @@ class BookController extends Controller
             ], 422);
         }
 
-        $cachedData = $this->openLibrary->refreshCache($book->isbn);
+        $cachedData = $this->fetchBookDataFromProviders($book->isbn);
 
         if ($cachedData) {
             $book->updateCache($cachedData);
@@ -255,19 +261,54 @@ class BookController extends Controller
             'success' => true,
             'data' => $book->fresh(),
             'cache_updated' => (bool) $cachedData,
+            'source' => $cachedData['source'] ?? null,
         ]);
     }
 
     /**
-     * S'assure que le cache du livre est a jour.
+     * Fetch book data from multiple providers with fallback
      *
-     * CORRECTION: Methode optimisee - ne fait plus de refresh synchrone
-     * dans la liste. Le refresh devrait etre fait via un job en arriere-plan.
+     * Provider priority:
+     * 1. OpenLibrary (free, no rate limits)
+     * 2. Google Books (better French and international coverage)
+     *
+     * @param string $isbn ISBN to search
+     * @return array|null Book data with 'source' key, or null if not found
+     */
+    private function fetchBookDataFromProviders(string $isbn): ?array
+    {
+        // Try OpenLibrary first (free, no limits)
+        $data = $this->openLibrary->getBookByIsbn($isbn);
+
+        if ($data) {
+            $data['source'] = 'openlibrary';
+            return $data;
+        }
+
+        // Fallback to Google Books (better coverage for French books)
+        $data = $this->googleBooks->getBookByIsbn($isbn);
+
+        if ($data) {
+            $data['source'] = 'google_books';
+            return $data;
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure cache is up to date
+     *
+     * Checks if cache needs refresh and updates if necessary.
+     * Uses multi-provider strategy for best results.
+     *
+     * @param Book $book Book to check
+     * @return void
      */
     private function ensureCache(Book $book): void
     {
         if ($book->needsCacheRefresh()) {
-            $cachedData = $this->openLibrary->getBookByIsbn($book->isbn);
+            $cachedData = $this->fetchBookDataFromProviders($book->isbn);
             if ($cachedData) {
                 $book->updateCache($cachedData);
             }

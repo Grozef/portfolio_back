@@ -9,7 +9,10 @@
  * - /v1/books/* : Gestion des livres (GET public, POST/PUT/DELETE protege)
  * - /v1/contact : Formulaire de contact (public)
  * - /v1/messages/* : Gestion admin des messages (protege)
+ * - /v1/carousel/* : Gestion du carrousel d'images (GET public, CRUD protege)
  * - /v1/health : Health check (public)
+ *
+ * UPDATED: Added rate limiting to carousel upload endpoint
  *
  * @package Routes
  */
@@ -96,8 +99,10 @@ Route::prefix('v1')->group(function () {
     | Route Contact (publique)
     |--------------------------------------------------------------------------
     | POST /contact - Envoi d'un message de contact
+    | Rate limit: 5 requêtes par minute pour prévenir le spam
     */
-    Route::post('/contact', [ContactController::class, 'store']);
+    Route::post('/contact', [ContactController::class, 'store'])
+        ->middleware('throttle:5,1');
 
     /*
     |--------------------------------------------------------------------------
@@ -125,6 +130,7 @@ Route::prefix('v1')->group(function () {
     | GET /carousel - Liste des images actives
     |
     | Routes protegees (auth requise):
+    | POST   /carousel/upload  - Upload une image (rate limited: 10/min)
     | POST   /carousel         - Ajouter une image
     | PUT    /carousel/{id}    - Modifier une image
     | DELETE /carousel/{id}    - Supprimer une image
@@ -137,7 +143,10 @@ Route::prefix('v1')->group(function () {
 
         // Protege: CRUD admin
         Route::middleware('auth:sanctum')->group(function () {
-            Route::post('/upload', [CarouselImageController::class, 'upload']);
+            // Upload with rate limiting to prevent abuse
+            Route::post('/upload', [CarouselImageController::class, 'upload'])
+                ->middleware('throttle:10,1');
+
             Route::post('/', [CarouselImageController::class, 'store']);
             Route::put('/{carouselImage}', [CarouselImageController::class, 'update']);
             Route::delete('/{carouselImage}', [CarouselImageController::class, 'destroy']);

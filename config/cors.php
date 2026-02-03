@@ -6,9 +6,10 @@ return [
     |--------------------------------------------------------------------------
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
+    | FIXED: Added 'carousel/*' path to allow frontend to load images
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'carousel/*'],
 
     'allowed_methods' => ['*'],
 
