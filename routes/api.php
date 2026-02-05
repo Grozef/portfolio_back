@@ -10,9 +10,10 @@
  * - /v1/contact : Formulaire de contact (public)
  * - /v1/messages/* : Gestion admin des messages (protege)
  * - /v1/carousel/* : Gestion du carrousel d'images (GET public, CRUD protege)
+ * - /v1/easter-eggs/* : Easter eggs tracking (public)
  * - /v1/health : Health check (public)
  *
- * UPDATED: Added rate limiting to carousel upload endpoint
+ * UPDATED: Fixed easter-eggs routes indentation
  *
  * @package Routes
  */
@@ -24,6 +25,7 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\CarouselImageController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\EasterEggController;
 
 Route::prefix('v1')->group(function () {
 
@@ -152,6 +154,23 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{carouselImage}', [CarouselImageController::class, 'destroy']);
             Route::post('/reorder', [CarouselImageController::class, 'reorder']);
         });
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Routes Easter Eggs (tracking des découvertes)
+    |--------------------------------------------------------------------------
+    | FIXED: Moved outside carousel group - was causing 404 errors
+    | GET    /easter-eggs/progress    - Récupérer la progression
+    | POST   /easter-eggs/discover    - Enregistrer une découverte
+    | DELETE /easter-eggs/reset       - Réinitialiser la progression
+    | GET    /easter-eggs/statistics  - Statistiques des découvertes
+    */
+    Route::prefix('easter-eggs')->group(function () {
+        Route::get('/progress', [EasterEggController::class, 'getProgress']);
+        Route::post('/discover', [EasterEggController::class, 'discoverEgg']);
+        Route::delete('/reset', [EasterEggController::class, 'resetProgress']);
+        Route::get('/statistics', [EasterEggController::class, 'getStatistics']);
     });
 
     /*
