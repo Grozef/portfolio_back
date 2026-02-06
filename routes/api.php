@@ -1,21 +1,18 @@
 <?php
 
 /**
- * Routes API du portfolio.
+ * API Routes - Complete Portfolio Backend
  *
  * Structure:
- * - /v1/auth/* : Authentification (login, logout, me)
- * - /v1/github/* : Integration GitHub (public)
- * - /v1/books/* : Gestion des livres (GET public, POST/PUT/DELETE protege)
- * - /v1/contact : Formulaire de contact (public)
- * - /v1/messages/* : Gestion admin des messages (protege)
- * - /v1/carousel/* : Gestion du carrousel d'images (GET public, CRUD protege)
- * - /v1/easter-eggs/* : Easter eggs tracking (public)
- * - /v1/health : Health check (public)
- *
- * UPDATED: Fixed easter-eggs routes indentation
- *
- * @package Routes
+ * - /v1/auth/* : Authentication
+ * - /v1/github/* : GitHub integration
+ * - /v1/books/* : Books management
+ * - /v1/contact : Contact form
+ * - /v1/messages/* : Admin messages
+ * - /v1/carousel/* : Carousel images
+ * - /v1/cookies/* : Cookie preferences & GDPR
+ * - /v1/easter-eggs/* : Easter egg tracking (analytics)
+ * - /v1/health : Health check (FIXED)
  */
 
 use App\Http\Controllers\AuthController;
@@ -24,18 +21,15 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\CarouselImageController;
+use App\Http\Controllers\CookieController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\EasterEggController;
 
 Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Routes d'authentification
+    | Authentication Routes
     |--------------------------------------------------------------------------
-    | POST /auth/login  - Connexion (avec protection brute force)
-    | POST /auth/logout - Deconnexion (protege)
-    | GET  /auth/me     - Utilisateur connecte (protege)
     */
     Route::prefix('auth')->group(function () {
         Route::post('/login', [AuthController::class, 'login']);
@@ -48,13 +42,8 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Routes GitHub (publiques)
+    | GitHub Routes (Public)
     |--------------------------------------------------------------------------
-    | GET /github/profile              - Profil utilisateur
-    | GET /github/repositories         - Liste des repos
-    | GET /github/repositories/pinned  - Repos epingles
-    | GET /github/repositories/{name}  - Detail d'un repo
-    | GET /github/repositories/{name}/languages - Langages d'un repo
     */
     Route::prefix('github')->group(function () {
         Route::get('/profile', [GitHubController::class, 'profile']);
@@ -66,28 +55,17 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Routes Books
+    | Books Routes
     |--------------------------------------------------------------------------
-    | Routes publiques:
-    | GET /books           - Liste des livres
-    | GET /books/featured  - Livres mis en avant
-    | GET /books/stats     - Statistiques
-    | GET /books/{id}      - Detail d'un livre
-    |
-    | Routes protegees (auth requise):
-    | POST   /books              - Ajouter un livre
-    | PUT    /books/{id}         - Modifier un livre
-    | DELETE /books/{id}         - Supprimer un livre
-    | POST   /books/{id}/refresh - Rafraichir le cache
     */
     Route::prefix('books')->group(function () {
-        // Public: lecture seule
+        // Public
         Route::get('/', [BookController::class, 'index']);
         Route::get('/featured', [BookController::class, 'featured']);
         Route::get('/stats', [BookController::class, 'stats']);
         Route::get('/{book}', [BookController::class, 'show']);
 
-        // Protege: CRUD admin
+        // Protected
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/', [BookController::class, 'store']);
             Route::put('/{book}', [BookController::class, 'update']);
@@ -98,23 +76,16 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Route Contact (publique)
+    | Contact Route (Public)
     |--------------------------------------------------------------------------
-    | POST /contact - Envoi d'un message de contact
-    | Rate limit: 5 requêtes par minute pour prévenir le spam
     */
     Route::post('/contact', [ContactController::class, 'store'])
         ->middleware('throttle:5,1');
 
     /*
     |--------------------------------------------------------------------------
-    | Routes Messages (protegees - admin only)
+    | Messages Routes (Protected - Admin Only)
     |--------------------------------------------------------------------------
-    | GET    /messages           - Liste des messages
-    | GET    /messages/{id}      - Detail d'un message
-    | PATCH  /messages/{id}/read   - Marquer comme lu
-    | PATCH  /messages/{id}/unread - Marquer comme non lu
-    | DELETE /messages/{id}      - Supprimer un message
     */
     Route::prefix('messages')->middleware('auth:sanctum')->group(function () {
         Route::get('/', [MessageController::class, 'index']);
@@ -126,26 +97,16 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Routes Carousel (images du carrousel)
+    | Carousel Routes
     |--------------------------------------------------------------------------
-    | Route publique:
-    | GET /carousel - Liste des images actives
-    |
-    | Routes protegees (auth requise):
-    | POST   /carousel/upload  - Upload une image (rate limited: 10/min)
-    | POST   /carousel         - Ajouter une image
-    | PUT    /carousel/{id}    - Modifier une image
-    | DELETE /carousel/{id}    - Supprimer une image
-    | POST   /carousel/reorder - Reordonner les images
     */
     Route::prefix('carousel')->group(function () {
-        // Public: images actives uniquement
+        // Public
         Route::get('/', [CarouselImageController::class, 'index']);
         Route::get('/{carouselImage}', [CarouselImageController::class, 'show']);
 
-        // Protege: CRUD admin
+        // Protected
         Route::middleware('auth:sanctum')->group(function () {
-            // Upload with rate limiting to prevent abuse
             Route::post('/upload', [CarouselImageController::class, 'upload'])
                 ->middleware('throttle:10,1');
 
@@ -158,31 +119,40 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Routes Easter Eggs (tracking des découvertes)
+    | Cookie Management Routes (GDPR Compliant)
     |--------------------------------------------------------------------------
-    | FIXED: Moved outside carousel group - was causing 404 errors
-    | GET    /easter-eggs/progress    - Récupérer la progression
-    | POST   /easter-eggs/discover    - Enregistrer une découverte
-    | DELETE /easter-eggs/reset       - Réinitialiser la progression
-    | GET    /easter-eggs/statistics  - Statistiques des découvertes
     */
-    Route::prefix('easter-eggs')->group(function () {
-        Route::get('/progress', [EasterEggController::class, 'getProgress']);
-        Route::post('/discover', [EasterEggController::class, 'discoverEgg']);
-        Route::delete('/reset', [EasterEggController::class, 'resetProgress']);
-        Route::get('/statistics', [EasterEggController::class, 'getStatistics']);
+    Route::prefix('cookies')->group(function () {
+        Route::get('/preferences', [CookieController::class, 'getPreferences']);
+        Route::post('/preferences', [CookieController::class, 'savePreferences']);
+
+        // Cleanup endpoint (for cron job)
+        Route::delete('/cleanup', [CookieController::class, 'cleanupExpired']);
     });
 
     /*
     |--------------------------------------------------------------------------
-    | Health Check (publique)
+    | Easter Eggs Routes (Analytics with Cookie Consent)
     |--------------------------------------------------------------------------
-    | GET /health - Verification de l'etat de l'API
+    */
+    Route::prefix('easter-eggs')->group(function () {
+        Route::get('/progress', [CookieController::class, 'getEasterEggProgress']);
+        Route::post('/discover', [CookieController::class, 'discoverEasterEgg']);
+        Route::delete('/reset', [CookieController::class, 'resetEasterEggProgress']);
+        Route::get('/statistics', [CookieController::class, 'getEasterEggStatistics']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Health Check (FIXED - No Uri Parameter Required)
+    |--------------------------------------------------------------------------
     */
     Route::get('/health', function () {
         return response()->json([
             'status' => 'ok',
+            'service' => 'portfolio-api',
             'timestamp' => now()->toIso8601String(),
+            'version' => '1.0.0'
         ]);
     });
 });
