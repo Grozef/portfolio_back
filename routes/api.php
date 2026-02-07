@@ -155,4 +155,9 @@ Route::prefix('v1')->group(function () {
             'version' => '1.0.0'
         ]);
     });
+
+    Route::get('/teapot-check', function () {
+    return response()->json(['message' => "I'm a teapot"], 418);
+});
+
 });

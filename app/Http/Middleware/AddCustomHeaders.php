@@ -22,7 +22,7 @@ class AddCustomHeaders
     {
         $response = $next($request);
 
-        // Add custom developer message header (Easter Egg #10)
+        // Add custom developer message header (Easter Egg)
         $messages = [
             "Ha ! Enfin un dev back !",
             "Bienvenue dans les coulisses !",
@@ -33,11 +33,8 @@ class AddCustomHeaders
         $randomMessage = $messages[array_rand($messages)];
         $response->headers->set('X-Developer-Message', $randomMessage);
 
-        // Add easter egg hint
-        $response->headers->set('X-Easter-Egg-Hint', 'There are ' . (14 - 1) . ' more to find!');
-
         // Add portfolio signature
-        $response->headers->set('X-Powered-By', 'Coffee and Determination');
+        $response->headers->set('X-Code', 'X_Project_Dj_Fresh_2005');
 
         return $response;
     }
