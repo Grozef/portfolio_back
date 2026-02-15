@@ -7,17 +7,18 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
  * Modele Book - Represente un livre dans la bibliotheque du portfolio.
- * 
+ *
  * Les donnees du livre peuvent provenir de deux sources:
  * - API Open Library (via ISBN) avec mise en cache
  * - Saisie manuelle (fallback si ISBN non trouve)
  *
  * @package App\Models
- * 
+ *
  * @property int $id
  * @property string|null $isbn ISBN-10 ou ISBN-13
  * @property string $title Titre du livre
  * @property string|null $author Auteur(s)
+ * @property string|null $genre Genre du livre
  * @property string|null $cover_url URL de la couverture
  * @property string $status Statut de lecture (read, reading, to-read)
  * @property int|null $rating Note personnelle (1-5)
@@ -40,6 +41,7 @@ class Book extends Model
         'isbn',
         'title',
         'author',
+        'genre',
         'cover_url',
         'status',
         'rating',

@@ -130,6 +130,7 @@ class BookController extends Controller
             ],
             'title' => 'nullable|string|max:255',
             'author' => 'nullable|string|max:255',
+            'genre' => 'nullable|string|max:100',
             'cover_url' => 'nullable|url|max:500',
             'status' => 'in:read,reading,to-read',
             'rating' => 'nullable|integer|min:1|max:5',
@@ -183,6 +184,7 @@ class BookController extends Controller
             'isbn' => $validated['isbn'] ?? null,
             'title' => $title,
             'author' => $author,
+            'genre' => $validated['genre'] ?? null,
             'cover_url' => $coverUrl,
             'status' => $validated['status'] ?? 'to-read',
             'rating' => $validated['rating'] ?? null,
@@ -208,6 +210,7 @@ class BookController extends Controller
         $validated = $request->validate([
             'title' => 'nullable|string|max:255',
             'author' => 'nullable|string|max:255',
+            'genre' => 'nullable|string|max:100',
             'cover_url' => 'nullable|url|max:500',
             'status' => 'in:read,reading,to-read',
             'rating' => 'nullable|integer|min:1|max:5',

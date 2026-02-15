@@ -23,6 +23,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\CarouselImageController;
 use App\Http\Controllers\CookieController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\WeatherController;
 
 Route::prefix('v1')->group(function () {
 
@@ -144,7 +145,7 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Health Check (FIXED - No Uri Parameter Required)
+    | Health Check Route (Public, No Caching)
     |--------------------------------------------------------------------------
     */
     Route::get('/health', function () {
@@ -160,4 +161,10 @@ Route::prefix('v1')->group(function () {
     return response()->json(['message' => "I'm a teapot"], 418);
 });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Weather Route (Public with Caching)
+    |--------------------------------------------------------------------------
+    */
+Route::get('/weather', WeatherController::class);
 });
