@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ContactMessage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 // use Illuminate\Http\Request;
 
 /**
@@ -15,18 +16,26 @@ use Illuminate\Http\JsonResponse;
  */
 class MessageController extends Controller
 {
-    /**
-     * Liste tous les messages de contact.
-     *
-     * @return JsonResponse Liste des messages
+/**
+     * Liste les messages avec pagination.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $messages = ContactMessage::orderByDesc('created_at')->get();
+        $perPage = $request->integer('per_page', 15);
+
+        // Utilisation de paginate au lieu de get
+        $messages = ContactMessage::orderByDesc('created_at')
+            ->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => $messages,
+            'data' => $messages->items(), // Uniquement les messages de la page
+            'meta' => [
+                'current_page' => $messages->currentPage(),
+                'last_page'    => $messages->lastPage(),
+                'per_page'     => $messages->perPage(),
+                'total'        => $messages->total(),
+            ],
         ]);
     }
 

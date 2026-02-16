@@ -19,17 +19,29 @@ class CarouselTest extends TestCase
         $response->assertStatus(200)->assertJsonStructure(['success', 'data']);
     }
 
-    public function test_upload_works_for_admin()
+public function test_upload_works_for_admin()
     {
-        $user = User::create(['name' => 'A', 'email' => 'admin_car@test.com', 'password' => 'p']);
-        $file = UploadedFile::fake()->image('photo.jpg');
+        // 1. On crée un admin (important si ta route est protégée par le middleware 'admin')
+        $user = User::create([
+            'name' => 'Admin Carousel',
+            'email' => 'admin_car@test.com',
+            'password' => 'password',
+            'is_admin' => true // S'assurer qu'il a les droits
+        ]);
 
-        $response = $this->actingAs($user)->postJson('/api/v1/carousel/upload', ['image' => $file]);
+        // 2. On génère une image factice aux bonnes dimensions (Largeur, Hauteur)
+        // Ici 640x480 pour passer la barre des 400x300
+        $file = UploadedFile::fake()->image('photo.jpg', 640, 480);
 
+        $response = $this->actingAs($user)->postJson('/api/v1/carousel/upload', [
+            'image' => $file
+        ]);
+
+        // 3. Assertions
         $response->assertStatus(200);
         $this->assertArrayHasKey('url', $response->json('data'));
 
-        // Nettoyage du fichier réel créé dans public/carousel
+        // Nettoyage
         $path = public_path($response->json('data.url'));
         if (file_exists($path)) @unlink($path);
     }

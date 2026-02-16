@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBookRequest;
+use App\Http\Requests\UpdateBookRequest;
 use App\Models\Book;
-use App\Services\OpenLibraryService;
 use App\Services\GoogleBooksService;
+use App\Services\OpenLibraryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -113,119 +115,63 @@ class BookController extends Controller
         ]);
     }
 
-    /**
-     * Create new book
-     *
-     * Tries to fetch book data from multiple providers:
-     * 1. OpenLibrary (free, no limits)
-     * 2. Google Books (better French coverage)
-     */
-    public function store(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'isbn' => [
-                'nullable',
-                'string',
-                'regex:/^(?:\d{9}[\dXx]|\d{13})$/',
-            ],
-            'title' => 'nullable|string|max:255',
-            'author' => 'nullable|string|max:255',
-            'genre' => 'nullable|string|max:100',
-            'cover_url' => 'nullable|url|max:500',
-            'status' => 'in:read,reading,to-read',
-            'rating' => 'nullable|integer|min:1|max:5',
-            'review' => 'nullable|string|max:5000',
-            'is_featured' => 'boolean',
-        ], [
-            'isbn.regex' => 'Invalid ISBN format. Must be ISBN-10 (10 digits) or ISBN-13 (13 digits).',
-        ]);
+/**
+ * Create new book
+ */
+public function store(StoreBookRequest $request): JsonResponse
+{
+    $validated = $request->validated();
 
-        $cachedData = null;
-        $title = $validated['title'] ?? null;
-        $author = $validated['author'] ?? null;
-        $coverUrl = $validated['cover_url'] ?? null;
+    $cachedData = null;
+    $title = $validated['title'] ?? null;
+    $author = $validated['author'] ?? null;
+    $coverUrl = $validated['cover_url'] ?? null;
 
-        // Fetch from providers if ISBN provided
-        if (!empty($validated['isbn'])) {
-            // Check ISBN uniqueness
-            if (Book::where('isbn', $validated['isbn'])->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'A book with this ISBN already exists.',
-                ], 422);
-            }
+    if (!empty($validated['isbn'])) {
+        $cachedData = $this->fetchBookDataFromProviders($validated['isbn']);
 
-            // Try to fetch from multiple providers
-            $cachedData = $this->fetchBookDataFromProviders($validated['isbn']);
-
-            if ($cachedData) {
-                $title = $cachedData['title'];
-                $author = $cachedData['author'];
-                $coverUrl = $cachedData['cover_url'];
-            } elseif (!$title) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'ISBN not found in any provider (OpenLibrary, Google Books). Please provide title manually.',
-                    'require_manual' => true,
-                ], 422);
-            }
-        }
-
-        // Require title
-        if (!$title) {
+        if ($cachedData) {
+            // Priorité aux données API si elles existent
+            $title = $cachedData['title'];
+            $author = $cachedData['author'];
+            $coverUrl = $cachedData['cover_url'];
+        } elseif (!$title) {
+            // Si pas d'API et pas de titre manuel
             return response()->json([
                 'success' => false,
-                'message' => 'Title is required when ISBN is not provided.',
+                'message' => 'Livre introuvable via ISBN. Veuillez saisir le titre manuellement.',
+                'require_manual' => true
             ], 422);
         }
-
-        // Create book
-        $book = Book::create([
-            'isbn' => $validated['isbn'] ?? null,
-            'title' => $title,
-            'author' => $author,
-            'genre' => $validated['genre'] ?? null,
-            'cover_url' => $coverUrl,
-            'status' => $validated['status'] ?? 'to-read',
-            'rating' => $validated['rating'] ?? null,
-            'review' => $validated['review'] ?? null,
-            'is_featured' => $validated['is_featured'] ?? false,
-            'cached_data' => $cachedData,
-            'cached_at' => $cachedData ? now() : null,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'data' => $book,
-            'from_api' => (bool) $cachedData,
-            'source' => $cachedData['source'] ?? null,
-        ], 201);
     }
 
-    /**
-     * Update existing book
-     */
-    public function update(Request $request, Book $book): JsonResponse
-    {
-        $validated = $request->validate([
-            'title' => 'nullable|string|max:255',
-            'author' => 'nullable|string|max:255',
-            'genre' => 'nullable|string|max:100',
-            'cover_url' => 'nullable|url|max:500',
-            'status' => 'in:read,reading,to-read',
-            'rating' => 'nullable|integer|min:1|max:5',
-            'review' => 'nullable|string|max:5000',
-            'is_featured' => 'boolean',
-            'sort_order' => 'integer',
-        ]);
+    $book = Book::create(array_merge($validated, [
+        'title' => $title,
+        'author' => $author,
+        'cover_url' => $coverUrl,
+        'cached_data' => $cachedData,
+        'cached_at' => $cachedData ? now() : null,
+    ]));
 
-        $book->update($validated);
+    return response()->json([
+        'success' => true,
+        'data' => $book,
+        'source' => $cachedData['source'] ?? 'manual',
+    ], 201);
+}
 
-        return response()->json([
-            'success' => true,
-            'data' => $book->fresh(),
-        ]);
-    }
+/**
+ * Update existing book
+ */
+public function update(UpdateBookRequest $request, Book $book): JsonResponse
+{
+    $book->update($request->validated());
+
+    return response()->json([
+        'success' => true,
+        'data' => $book->fresh(),
+    ]);
+}
 
     /**
      * Delete book

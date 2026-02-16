@@ -1,0 +1,69 @@
+name: Laravel Tests (ParaTest)
+
+on:
+  push:
+    branches: [ main, dev ] # Ajusté à tes branches probables
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  laravel-tests:
+    name: Suite de Tests Parallélisée
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: portfolio_test # Nom plus générique
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, dom, fileinfo, mysql, pdo_mysql, zip, bcmath
+          coverage: xdebug # Requis pour ParaTest + Coverage
+          tools: composer:v2
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Prepare Environment
+        run: |
+          cp .env.example .env
+          echo "APP_ENV=testing" >> .env
+          echo "DB_DATABASE=portfolio_test" >> .env
+          echo "DB_PASSWORD=password" >> .env
+
+      - name: Install Dependencies
+        run: |
+          composer install --prefer-dist --no-progress --no-interaction
+          composer require --dev brianium/paratest --no-interaction
+
+      - name: Finalize Setup
+        run: |
+          php artisan key:generate
+          chmod -R 777 storage bootstrap/cache
+          php artisan migrate --force --seed
+
+      - name: Run ParaTest 
+        run: php artisan test --parallel
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: portfolio_test
+          DB_USERNAME: root
+          DB_PASSWORD: password

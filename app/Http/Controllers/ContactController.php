@@ -2,38 +2,36 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreContactRequest;
 use App\Models\ContactMessage;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
-/**
- * Controleur ContactController - Gestion des messages de contact.
- *
- * CORRECTION APPLIQUEE:
- * - Rate limiting gere par le middleware throttle dans routes/api.php
- * - Validation amelioree avec limite sur message
- *
- * @package App\Http\Controllers
- */
 class ContactController extends Controller
 {
     /**
      * Enregistre un nouveau message de contact.
-     *
-     * Rate limiting: 5 messages par minute (gere par middleware throttle)
+     * * @param StoreContactRequest $request
+     * @return JsonResponse
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreContactRequest $request): JsonResponse
     {
-        // Validation
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'subject' => 'nullable|string|max:255',
-            'message' => 'required|string|max:5000', // FIXED: Added max limit
-        ]);
+        // STRATÉGIE HONEYPOT :
+        // Si le champ 'website' est rempli, c'est un bot (car ce champ est masqué pour l'humain).
+        // On retourne un succès (201) pour ne pas donner d'indice au bot,
+        // mais on n'enregistre RIEN en base de données.
+        if ($request->filled('website')) {
+            Log::info("Spam détecté et bloqué : " . $request->email);
 
-        // Creation du message
-        $message = ContactMessage::create($validated);
+            return response()->json([
+                'success' => true,
+                'message' => 'Message sent successfully',
+            ], 201);
+        }
+
+        // Si on arrive ici, c'est un humain.
+        // On utilise $request->validated() qui exclut le champ 'website'.
+        $message = ContactMessage::create($request->validated());
 
         return response()->json([
             'success' => true,
