@@ -2,7 +2,7 @@ name: Laravel Tests (ParaTest)
 
 on:
   push:
-    branches: [ main, dev ] # Ajusté à tes branches probables
+    branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
 
@@ -16,7 +16,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: portfolio_test # Nom plus générique
+          MYSQL_DATABASE: portfolio_test
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
@@ -30,7 +30,7 @@ jobs:
         with:
           php-version: '8.2'
           extensions: mbstring, dom, fileinfo, mysql, pdo_mysql, zip, bcmath
-          coverage: xdebug # Requis pour ParaTest + Coverage
+          coverage: xdebug
           tools: composer:v2
 
       - name: Cache Composer dependencies
@@ -58,7 +58,7 @@ jobs:
           chmod -R 777 storage bootstrap/cache
           php artisan migrate --force --seed
 
-      - name: Run ParaTest 
+      - name: Run ParaTest
         run: php artisan test --parallel
         env:
           DB_CONNECTION: mysql
