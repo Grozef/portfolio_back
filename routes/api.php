@@ -24,6 +24,7 @@ use App\Http\Controllers\CarouselImageController;
 use App\Http\Controllers\CookieController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WeatherController;
+use App\Http\Controllers\SecurityController;
 
 Route::prefix('v1')->group(function () {
 
@@ -95,6 +96,12 @@ Route::prefix('v1')->group(function () {
         Route::patch('/{message}/unread', [MessageController::class, 'markAsUnread']);
         Route::delete('/{message}', [MessageController::class, 'destroy']);
     });
+
+    Route::middleware(['auth:sanctum', 'admin'])
+        ->prefix('admin')
+        ->group(function () {
+            Route::get('/security-stats', [SecurityController::class, 'index']);
+        });
 
     /*
     |--------------------------------------------------------------------------

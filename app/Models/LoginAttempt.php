@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Modele LoginAttempt - Suivi des tentatives de connexion.
- * 
+ *
  * Utilise pour la protection contre les attaques par force brute.
  * Enregistre chaque tentative de connexion avec son resultat.
  *
  * @package App\Models
- * 
+ *
  * @property int $id
  * @property string $email Email tente
  * @property string $ip_address Adresse IP de la tentative
@@ -135,7 +136,7 @@ class LoginAttempt extends Model
         }
 
         $unlockAt = $lastAttempt->attempted_at->addMinutes(self::LOCKOUT_MINUTES);
-        
+
         if (now()->gte($unlockAt)) {
             return 0;
         }
@@ -166,4 +167,73 @@ class LoginAttempt extends Model
     {
         return self::where('attempted_at', '<', now()->subDay())->delete();
     }
+
+    /**
+ * Récupère les statistiques globales des dernières 24h.
+ */
+public static function getStats24h(): array
+{
+    $total = self::where('attempted_at', '>', now()->subDay())->count();
+    $failures = self::where('attempted_at', '>', now()->subDay())
+                    ->where('successful', false)
+                    ->count();
+
+    // Ratio de succès (en LaTeX pour la forme)
+    // $R = \frac{S}{T} \times 100$
+    $successRate = $total > 0 ? (($total - $failures) / $total) * 100 : 100;
+
+    return [
+        'total' => $total,
+        'failures' => $failures,
+        'success_rate' => round($successRate, 2) . '%',
+    ];
+}
+
+/**
+ * Identifie les "Hotspots" (IP ou Emails les plus ciblés/actifs en échec).
+ * Utile pour détecter une attaque par force brute en cours.
+ */
+public static function getBruteForceAlerts()
+{
+    return self::where('successful', false)
+        ->where('attempted_at', '>', now()->subHours(6))
+        ->select('ip_address', 'email', DB::raw('count(*) as attempts'))
+        ->groupBy('ip_address', 'email')
+        ->having('attempts', '>=', self::MAX_ATTEMPTS)
+        ->orderByDesc('attempts')
+        ->get();
+}
+
+/**
+ * Statistiques de sécurité pour le Dashboard
+ */
+public static function getSecurityMetrics(): array
+{
+    $last24h = now()->subDay();
+
+    return [
+        'total_attempts' => self::where('attempted_at', '>', $last24h)->count(),
+        'failed_attempts' => self::where('attempted_at', '>', $last24h)->where('successful', false)->count(),
+        'unique_ips_blocked' => self::where('attempted_at', '>', $last24h)
+                                    ->where('successful', false)
+                                    ->distinct()
+                                    ->count('ip_address'),
+    ];
+}
+
+/**
+ * Liste des "Suspects" (IPs avec beaucoup d'échecs récents)
+ */
+public static function getTopSuspects(int $limit = 5)
+{
+    return self::where('successful', false)
+        ->where('attempted_at', '>', now()->subHours(12))
+        ->select('ip_address', DB::raw('count(*) as count'), DB::raw('max(attempted_at) as last_attempt'))
+        ->groupBy('ip_address')
+        ->having('count', '>', 5)
+        ->orderByDesc('count')
+        ->limit($limit)
+        ->get();
+}
+
 }

@@ -11,5 +11,6 @@ use App\Models\LoginAttempt;
 
 // Nettoyage quotidien des tentatives de connexion anciennes
 Schedule::call(function () {
-    LoginAttempt::cleanup();
+    $count = LoginAttempt::cleanup();
+    logger()->info("Nettoyage des tentatives de connexion : $count entrées supprimées.");
 })->daily();
