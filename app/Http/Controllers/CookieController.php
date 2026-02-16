@@ -4,53 +4,27 @@ namespace App\Http\Controllers;
 
 use App\Models\CookiePreference;
 use App\Models\CookieEasterEgg;
+use App\Http\Resources\CookiePreferenceResource;
+use App\Http\Resources\CookieEasterEggResource;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
-/**
- * Cookie Management Controller
- *
- * Handles GDPR-compliant cookie storage:
- * - Cookie preferences (1-year expiry)
- * - Easter egg discoveries (analytics)
- * - Works for non-logged users via session ID
- */
 class CookieController extends Controller
 {
-    /**
-     * Get or create session ID from cookies
-     */
     private function getSessionId(Request $request): string
     {
-        // Try to get from cookie first
-        $sessionId = $request->cookie('session_id');
-
-        if (!$sessionId) {
-            // Try from header
-            $sessionId = $request->header('X-Session-Id');
-        }
-
-        if (!$sessionId) {
-            // Generate new one
-            $sessionId = 'sess_' . Str::random(32);
-        }
-
-        return $sessionId;
+        $sessionId = $request->cookie('session_id') ?? $request->header('X-Session-Id');
+        return $sessionId ?? 'sess_' . Str::random(32);
     }
 
-    /**
-     * Set session ID cookie (1 year expiry)
-     */
     private function setSessionIdCookie(string $sessionId)
     {
-        return cookie('session_id', $sessionId, 525600, '/', null, true, true); // 1 year, httponly, secure
+        return cookie('session_id', $sessionId, 525600, '/', null, true, true);
     }
 
-    /**
-     * Get cookie preferences
-     */
-    public function getPreferences(Request $request)
+    public function getPreferences(Request $request): JsonResponse
     {
         $sessionId = $this->getSessionId($request);
 
@@ -72,21 +46,11 @@ class CookieController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'analytics_consent' => $preference->analytics_consent,
-                'marketing_consent' => $preference->marketing_consent,
-                'preferences_consent' => $preference->preferences_consent,
-                'has_consent' => true,
-                'consent_date' => $preference->consent_date->toIso8601String(),
-                'expires_at' => $preference->expires_at->toIso8601String()
-            ]
+            'data' => new CookiePreferenceResource($preference)
         ])->withCookie($this->setSessionIdCookie($sessionId));
     }
 
-    /**
-     * Save cookie preferences
-     */
-    public function savePreferences(Request $request)
+    public function savePreferences(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'analytics_consent' => 'required|boolean',
@@ -95,10 +59,7 @@ class CookieController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
         $sessionId = $this->getSessionId($request);
@@ -117,23 +78,14 @@ class CookieController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Cookie preferences saved',
-            'data' => [
-                'analytics_consent' => $preference->analytics_consent,
-                'marketing_consent' => $preference->marketing_consent,
-                'preferences_consent' => $preference->preferences_consent,
-                'expires_at' => $preference->expires_at->toIso8601String()
-            ]
+            'data' => new CookiePreferenceResource($preference)
         ])->withCookie($this->setSessionIdCookie($sessionId));
     }
 
-    /**
-     * Get easter egg progress (analytics)
-     */
-    public function getEasterEggProgress(Request $request)
+    public function getEasterEggProgress(Request $request): JsonResponse
     {
         $sessionId = $this->getSessionId($request);
 
-        // Check if user has analytics consent
         $preference = CookiePreference::where('session_id', $sessionId)
             ->valid()
             ->first();
@@ -155,20 +107,11 @@ class CookieController extends Controller
             'success' => true,
             'data' => $discoveries->pluck('egg_id')->toArray(),
             'count' => $discoveries->count(),
-            'discoveries' => $discoveries->map(function ($item) {
-                return [
-                    'egg_id' => $item->egg_id,
-                    'discovered_at' => $item->discovered_at->toIso8601String(),
-                    'metadata' => $item->metadata
-                ];
-            })
+            'discoveries' => CookieEasterEggResource::collection($discoveries)
         ])->withCookie($this->setSessionIdCookie($sessionId));
     }
 
-    /**
-     * Record easter egg discovery (analytics)
-     */
-    public function discoverEasterEgg(Request $request)
+    public function discoverEasterEgg(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'egg_id' => 'required|string|max:50',
@@ -176,18 +119,11 @@ class CookieController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
         $sessionId = $this->getSessionId($request);
-
-        // Check analytics consent
-        $preference = CookiePreference::where('session_id', $sessionId)
-            ->valid()
-            ->first();
+        $preference = CookiePreference::where('session_id', $sessionId)->valid()->first();
 
         if (!$preference || !$preference->analytics_consent) {
             return response()->json([
@@ -197,9 +133,6 @@ class CookieController extends Controller
         }
 
         $eggId = $request->input('egg_id');
-        $metadata = $request->input('metadata', []);
-
-        // Check if already discovered
         $existing = CookieEasterEgg::where('session_id', $sessionId)
             ->where('egg_id', $eggId)
             ->valid()
@@ -213,33 +146,25 @@ class CookieController extends Controller
             ])->withCookie($this->setSessionIdCookie($sessionId));
         }
 
-        // Create new discovery record
         $discovery = CookieEasterEgg::create([
             'session_id' => $sessionId,
             'egg_id' => $eggId,
             'discovered_at' => now(),
             'expires_at' => now()->addYear(),
-            'metadata' => $metadata
+            'metadata' => $request->input('metadata', [])
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Easter egg discovered!',
             'already_discovered' => false,
-            'data' => [
-                'egg_id' => $discovery->egg_id,
-                'discovered_at' => $discovery->discovered_at->toIso8601String()
-            ]
+            'data' => new CookieEasterEggResource($discovery)
         ])->withCookie($this->setSessionIdCookie($sessionId));
     }
 
-    /**
-     * Reset easter egg progress
-     */
-    public function resetEasterEggProgress(Request $request)
+    public function resetEasterEggProgress(Request $request): JsonResponse
     {
         $sessionId = $this->getSessionId($request);
-
         $deleted = CookieEasterEgg::where('session_id', $sessionId)->delete();
 
         return response()->json([
@@ -249,45 +174,34 @@ class CookieController extends Controller
         ])->withCookie($this->setSessionIdCookie($sessionId));
     }
 
-    /**
-     * Get easter egg statistics
-     */
-    public function getEasterEggStatistics(Request $request)
+    public function getEasterEggStatistics(Request $request): JsonResponse
     {
         $sessionId = $this->getSessionId($request);
-
         $totalEggs = 18;
-        $discovered = CookieEasterEgg::where('session_id', $sessionId)
-            ->valid()
-            ->count();
 
-        $firstDiscovery = CookieEasterEgg::where('session_id', $sessionId)
+        $discoveries = CookieEasterEgg::where('session_id', $sessionId)
             ->valid()
             ->orderBy('discovered_at', 'asc')
-            ->first();
+            ->get();
 
-        $lastDiscovery = CookieEasterEgg::where('session_id', $sessionId)
-            ->valid()
-            ->orderBy('discovered_at', 'desc')
-            ->first();
+        $count = $discoveries->count();
+        $first = $discoveries->first();
+        $last = $discoveries->last();
 
         return response()->json([
             'success' => true,
             'data' => [
                 'total_eggs' => $totalEggs,
-                'discovered' => $discovered,
-                'remaining' => $totalEggs - $discovered,
-                'percentage' => round(($discovered / $totalEggs) * 100, 2),
-                'first_discovery' => $firstDiscovery ? $firstDiscovery->discovered_at->toIso8601String() : null,
-                'last_discovery' => $lastDiscovery ? $lastDiscovery->discovered_at->toIso8601String() : null
+                'discovered' => $count,
+                'remaining' => $totalEggs - $count,
+                'percentage' => round(($count / $totalEggs) * 100, 2),
+                'first_discovery' => $first ? $first->discovered_at->toIso8601String() : null,
+                'last_discovery' => $last ? $last->discovered_at->toIso8601String() : null
             ]
         ])->withCookie($this->setSessionIdCookie($sessionId));
     }
 
-    /**
-     * Delete expired records (cron job)
-     */
-    public function cleanupExpired()
+    public function cleanupExpired(): JsonResponse
     {
         $expiredPreferences = CookiePreference::where('expires_at', '<', now())->delete();
         $expiredEggs = CookieEasterEgg::where('expires_at', '<', now())->delete();
