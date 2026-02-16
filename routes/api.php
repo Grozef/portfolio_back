@@ -16,15 +16,16 @@
  */
 
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\GitHubController;
-use App\Http\Controllers\ContactController;
 use App\Http\Controllers\BookController;
-use App\Http\Controllers\MessageController;
 use App\Http\Controllers\CarouselImageController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CookieController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\WeatherController;
+use App\Http\Controllers\EasterEggController;
+use App\Http\Controllers\GitHubController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\SecurityController;
+use App\Http\Controllers\WeatherController;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
@@ -143,12 +144,19 @@ Route::prefix('v1')->group(function () {
     | Easter Eggs Routes (Analytics with Cookie Consent)
     |--------------------------------------------------------------------------
     */
+    // Route::prefix('easter-eggs')->group(function () {
+    //     Route::get('/progress', [CookieController::class, 'getEasterEggProgress']);
+    //     Route::post('/discover', [CookieController::class, 'discoverEasterEgg']);
+    //     Route::delete('/reset', [CookieController::class, 'resetEasterEggProgress']);
+    //     Route::get('/statistics', [CookieController::class, 'getEasterEggStatistics']);
+    // });
+
     Route::prefix('easter-eggs')->group(function () {
-        Route::get('/progress', [CookieController::class, 'getEasterEggProgress']);
-        Route::post('/discover', [CookieController::class, 'discoverEasterEgg']);
-        Route::delete('/reset', [CookieController::class, 'resetEasterEggProgress']);
-        Route::get('/statistics', [CookieController::class, 'getEasterEggStatistics']);
-    });
+    Route::get('/progress', [EasterEggController::class, 'getProgress']); // Au lieu de CookieController
+    Route::post('/discover', [EasterEggController::class, 'discoverEgg']);
+    Route::delete('/reset', [EasterEggController::class, 'resetProgress']);
+    Route::get('/statistics', [EasterEggController::class, 'getStatistics']);
+});
 
     /*
     |--------------------------------------------------------------------------
