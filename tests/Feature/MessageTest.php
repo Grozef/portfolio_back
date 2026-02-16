@@ -46,4 +46,16 @@ public function test_mark_as_read_updates_timestamp()
         $this->actingAs($user)->patchJson("/api/v1/messages/{$msg->id}/read")->assertStatus(200);
         $this->assertNotNull($msg->fresh()->read_at);
     }
+
+    public function test_show_requires_auth()
+    {
+        $msg = \App\Models\ContactMessage::create([
+            'name' => 'Sender',
+            'email' => 's@t.com',
+            'message' => 'Hello'
+        ]);
+
+        $this->getJson("/api/v1/messages/{$msg->id}")
+             ->assertStatus(401);
+    }
 }

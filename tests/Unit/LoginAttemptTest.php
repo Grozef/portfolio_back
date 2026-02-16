@@ -5,7 +5,7 @@ namespace Tests\Unit;
 use App\Models\LoginAttempt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
-use Illuminate\Support\Facades\DB; 
+use Illuminate\Support\Facades\DB;
 
 class LoginAttemptTest extends TestCase
 {
@@ -37,4 +37,26 @@ class LoginAttemptTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $deletedCount);
         $this->assertDatabaseMissing('login_attempts', ['email' => 'old@test.com']);
     }
+
+public function test_remaining_lockout_seconds_calculation()
+{
+    $email = 'lockout@test.com';
+    $ip = '1.2.3.4';
+
+    // Ton modèle utilise LOCKOUT_MINUTES = 15.
+    // On crée une tentative échouée il y a 10 minutes.
+    DB::table('login_attempts')->insert([
+        'email' => $email,
+        'ip_address' => $ip,
+        'successful' => false,
+        'attempted_at' => now()->subMinutes(10)
+    ]);
+
+    // On retire le "get" pour correspondre au modèle
+    $remaining = LoginAttempt::remainingLockoutSeconds($email, $ip);
+
+    // Il devrait rester environ 5 minutes (300 secondes)
+    $this->assertGreaterThan(0, $remaining);
+    $this->assertLessThanOrEqual(900, $remaining); // 900s = 15 min max
+}
 }
