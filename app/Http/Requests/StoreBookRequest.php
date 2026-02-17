@@ -17,13 +17,14 @@ class StoreBookRequest extends FormRequest
             'isbn' => [
                 'nullable',
                 'string',
-                'unique:books,isbn', // Unicité gérée ici
-                'regex:/^(?:\d{9}[\dXx]|\d{13})$/'
+                'max:17',  // Pour inclure les tirets
+                'unique:books,isbn',
+                'regex:/^(?:\d{10}|\d{13}|(?:\d{1,5}-)+\d{1,5})$/'  // Format flexible
             ],
             // Le titre est requis si l'ISBN est absent
             'title' => 'required_without:isbn|nullable|string|max:255',
             'author' => 'nullable|string|max:255',
-            'genre' => 'nullable|string|max:100',
+            'genre' => 'nullable|string|max:255',
             'cover_url' => [
                 'nullable',
                 'url',

@@ -20,6 +20,7 @@ class UpdateBookRequest extends FormRequest
             'status' => 'in:read,reading,to-read',
             'cover_url' => 'nullable|url|regex:/^(https?:\/\/(covers\.openlibrary\.org|books\.google\.com))/i',
             'is_featured' => 'boolean',
+            'genre' => 'nullable|string|in:Fantasy,Sci-Fi,Mystery,Romance,History,Biography,Technical,Other',
             'rating' => 'nullable|integer|min:0|max:5',
             'sort_order' => 'integer',
         ];
