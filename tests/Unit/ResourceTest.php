@@ -8,7 +8,7 @@ use App\Models\CookieEasterEgg;
 use App\Http\Resources\BookResource;
 use App\Http\Resources\CookiePreferenceResource;
 use App\Http\Resources\CookieEasterEggResource;
-use Illuminate\Foundation\Testing\DatabaseTransactions; 
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class ResourceTest extends TestCase
@@ -16,9 +16,8 @@ class ResourceTest extends TestCase
     use DatabaseTransactions;
 
     /** @test */
-    public function book_resource_formats_correctly()
+public function book_resource_formats_correctly(): void
     {
-        // Création manuelle sans Factory
         $book = Book::create([
             'title' => 'Titre Manuel',
             'author' => 'Auteur Manuel',
@@ -37,12 +36,18 @@ class ResourceTest extends TestCase
 
         $resource = (new BookResource($book))->resolve();
 
-        // Vérification des accesseurs (API > Manuel)
-        $this->assertEquals('Titre API', $resource['title']);
-        $this->assertEquals('Auteur API', $resource['author']);
+        // Testing the Accessors (The Resource uses $this->display_title)
+        $this->assertEquals('Titre API', $resource['display_title']);
+        $this->assertEquals('Auteur API', $resource['display_author']);
+
+        // Testing the Raw fields
+        $this->assertEquals('Titre Manuel', $resource['title']);
+        $this->assertEquals('Auteur Manuel', $resource['author']);
+
+        // Testing Source Logic
         $this->assertEquals('openlibrary', $resource['source']);
 
-        // Vérification du format de date ISO 8601
+        // Check ISO 8601 format
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $resource['created_at']);
     }
 

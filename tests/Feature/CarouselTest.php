@@ -7,6 +7,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use Illuminate\Filesystem\FilesystemAdapter;
 
 class CarouselTest extends TestCase
 {
@@ -19,25 +20,29 @@ class CarouselTest extends TestCase
         parent::setUp();
         Storage::fake('public');
         $this->admin = User::factory()->create(['is_admin' => true]);
+        $disk = Storage::disk('public');
     }
 
     /**
      * Test l'upload : vérifie le stockage physique
      */
-    public function test_upload_physically_saves_file()
-    {
-        $file = UploadedFile::fake()->image('carousel.jpg', 1920, 1080);
+public function test_upload_physically_saves_file()
+{
+    /** @var FilesystemAdapter $disk */
+    $disk = Storage::disk('public');
 
-        $response = $this->actingAs($this->admin)->postJson('/api/v1/carousel/upload', [
-            'image' => $file
-        ]);
+    $file = UploadedFile::fake()->image('carousel.jpg', 1920, 1080);
 
-        $response->assertStatus(200);
-        $filename = $response->json('data.filename');
+    $response = $this->actingAs($this->admin)->postJson('/api/v1/carousel/upload', [
+        'image' => $file
+    ]);
 
-        // Utilise bien Storage::disk('public') pour l'assertion
-        Storage::disk('public')->assertExists('carousel/' . $filename);
-    }
+    $response->assertStatus(200);
+    $filename = $response->json('data.filename');
+
+    // L'IDE ne soulignera plus car il sait que c'est un FilesystemAdapter
+    $disk->assertExists('carousel/' . $filename);
+}
 
     /**
      * Test le store (pour couvrir StoreCarouselImageRequest)
@@ -62,24 +67,26 @@ class CarouselTest extends TestCase
     /**
      * Test la suppression et le nettoyage du disque
      */
-    public function test_destroy_deletes_record_and_file()
-    {
-        // On simule un fichier existant
-        Storage::disk('public')->put('carousel/test_del.jpg', 'content');
+public function test_destroy_deletes_record_and_file()
+{
+    /** @var FilesystemAdapter $storage */
+    $storage = Storage::disk('public');
 
-        $img = CarouselImage::create([
-            'title' => 'A supprimer',
-            'image_url' => '/storage/carousel/test_del.jpg'
-        ]);
+    // On simule un fichier existant
+    $storage->put('carousel/test_del.jpg', 'content');
 
-        $response = $this->actingAs($this->admin)->deleteJson("/api/v1/carousel/{$img->id}");
+    $img = CarouselImage::create([
+        'title' => 'A supprimer',
+        'image_url' => '/storage/carousel/test_del.jpg'
+    ]);
 
-        $response->assertStatus(200);
-        $this->assertDatabaseMissing('carousel_images', ['id' => $img->id]);
+    $response = $this->actingAs($this->admin)->deleteJson("/api/v1/carousel/{$img->id}");
 
-        // On vérifie que le fichier physique est bien parti
-        Storage::disk('public')->assertMissing('carousel/test_del.jpg');
-    }
+    $response->assertStatus(200);
+    $this->assertDatabaseMissing('carousel_images', ['id' => $img->id]);
+
+    $storage->assertMissing('carousel/test_del.jpg');
+}
 
     /**
      * Test de réordonnancement
