@@ -14,12 +14,12 @@ class StoreCarouselImageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => 'nullable|string|max:100',
+            'title' => 'nullable|string|max:255',
             'image_url' => [
                 'required',
                 'string',
                 'max:500',
-                'regex:/^(https?:\/\/|\/carousel\/).*$/i'
+                'regex:/^(https?:\/\/|\/storage\/).*$/i'
             ],
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
