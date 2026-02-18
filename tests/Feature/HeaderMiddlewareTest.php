@@ -24,8 +24,8 @@ class HeaderMiddlewareTest extends TestCase
         $messages = [
             "Ha ! Enfin un dev back !",
             "Bienvenue dans les coulisses !",
-            "Tu cherches quelque chose de special ?",
-            "Easter egg found: Check the headers!",
+            "Lookin' for something special ?",
+            "Easter egg found: Check the X-code above !",
         ];
         $this->assertContains($response->headers->get('X-Developer-Message'), $messages);
     }
