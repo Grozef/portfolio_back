@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreContactRequest;
+use App\Http\Resources\ContactMessageResource;
 use App\Models\ContactMessage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -36,7 +37,7 @@ class ContactController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Message sent successfully',
-            'data' => $message,
+            'data' => new ContactMessageResource($message),
         ], 201);
     }
 }

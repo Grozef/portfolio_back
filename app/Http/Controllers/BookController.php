@@ -53,7 +53,21 @@ class BookController extends Controller
 
     public function show(Book $book): JsonResponse
     {
-        $this->ensureCache($book);
+        if ($book->needsCacheRefresh()) {
+            $openLibrary = $this->openLibrary;
+            $googleBooks = $this->googleBooks;
+
+            dispatch(function () use ($book, $openLibrary, $googleBooks) {
+                $data = $openLibrary->getBookByIsbn($book->isbn);
+                if ($data) {
+                    $data['source'] = 'openlibrary';
+                } else {
+                    $data = $googleBooks->getBookByIsbn($book->isbn);
+                    if ($data) $data['source'] = 'google_books';
+                }
+                if ($data) $book->updateCache($data);
+            })->afterResponse();
+        }
 
         return response()->json([
             'success' => true,
@@ -64,7 +78,26 @@ class BookController extends Controller
     public function featured(): JsonResponse
     {
         $books = Book::featured()->ordered()->limit(6)->get();
-        $books->each(fn($book) => $this->ensureCache($book));
+
+        $staleBooks = $books->filter(fn($book) => $book->needsCacheRefresh());
+
+        if ($staleBooks->isNotEmpty()) {
+            $openLibrary = $this->openLibrary;
+            $googleBooks = $this->googleBooks;
+
+            dispatch(function () use ($staleBooks, $openLibrary, $googleBooks) {
+                foreach ($staleBooks as $book) {
+                    $data = $openLibrary->getBookByIsbn($book->isbn);
+                    if ($data) {
+                        $data['source'] = 'openlibrary';
+                    } else {
+                        $data = $googleBooks->getBookByIsbn($book->isbn);
+                        if ($data) $data['source'] = 'google_books';
+                    }
+                    if ($data) $book->updateCache($data);
+                }
+            })->afterResponse();
+        }
 
         return response()->json([
             'success' => true,
@@ -189,13 +222,4 @@ class BookController extends Controller
         return null;
     }
 
-    private function ensureCache(Book $book): void
-    {
-        if ($book->needsCacheRefresh()) {
-            $cachedData = $this->fetchBookDataFromProviders($book->isbn);
-            if ($cachedData) {
-                $book->updateCache($cachedData);
-            }
-        }
-    }
 }

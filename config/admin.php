@@ -29,6 +29,6 @@ return [
     | Mot de passe pour la connexion admin.
     | ATTENTION: Changer cette valeur en production!
     */
-    'password' => env('ADMIN_PASSWORD', 'robin', 'change-me-in-production'),
+    'password' => env('ADMIN_PASSWORD'),
 
 ];

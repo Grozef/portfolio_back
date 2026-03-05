@@ -97,7 +97,7 @@ class MessageTest extends TestCase
             ->deleteJson("/api/v1/messages/{$message->id}")
             ->assertStatus(200);
 
-        $this->assertDatabaseMissing('contact_messages', ['id' => $message->id]);
+        $this->assertSoftDeleted('contact_messages', ['id' => $message->id]);
     }
 
     public function test_show_requires_auth()

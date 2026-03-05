@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\{StoreCarouselImageRequest, UploadImageRequest};
+use App\Http\Requests\{StoreCarouselImageRequest, UpdateCarouselImageRequest, UploadImageRequest};
 use App\Models\CarouselImage;
 use App\Http\Resources\CarouselImageResource;
 use Illuminate\Http\{JsonResponse, Request};
@@ -40,6 +40,24 @@ class CarouselImageController extends Controller
             Log::error("Upload failed: " . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Upload failed'], 500);
         }
+    }
+
+    public function show(CarouselImage $carouselImage): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => new CarouselImageResource($carouselImage),
+        ]);
+    }
+
+    public function update(UpdateCarouselImageRequest $request, CarouselImage $carouselImage): JsonResponse
+    {
+        $carouselImage->update($request->validated());
+
+        return response()->json([
+            'success' => true,
+            'data' => new CarouselImageResource($carouselImage->fresh()),
+        ]);
     }
 
     public function store(StoreCarouselImageRequest $request): JsonResponse

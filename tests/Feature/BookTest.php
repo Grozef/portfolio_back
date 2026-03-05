@@ -182,8 +182,8 @@ public function test_store_returns_error_if_all_apis_fail()
     // 1. Un ISBN propre qui passe ta regex
     $isbn = '9782070612758';
 
-    // 2. On nettoie pour éviter le conflit "unique"
-    \App\Models\Book::where('isbn', $isbn)->delete();
+    // 2. On nettoie pour éviter le conflit "unique" (forceDelete pour contourner les soft deletes)
+    \App\Models\Book::where('isbn', $isbn)->forceDelete();
 
     // 3. On simule l'échec des APIs
     \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response([], 404)]);

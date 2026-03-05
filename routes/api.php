@@ -12,7 +12,7 @@
  * - /v1/carousel/* : Carousel images
  * - /v1/cookies/* : Cookie preferences & GDPR
  * - /v1/easter-eggs/* : Easter egg tracking (analytics)
- * - /v1/health : Health check (FIXED)
+ * - /v1/health : Health check
  */
 
 use App\Http\Controllers\AuthController;
@@ -68,8 +68,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/stats', [BookController::class, 'stats']);
         Route::get('/{book}', [BookController::class, 'show']);
 
-        // Protected
-        Route::middleware('auth:sanctum')->group(function () {
+        // Admin only
+        Route::middleware(['auth:sanctum', 'admin'])->group(function () {
             Route::post('/', [BookController::class, 'store']);
             Route::put('/{book}', [BookController::class, 'update']);
             Route::delete('/{book}', [BookController::class, 'destroy']);
@@ -87,10 +87,10 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Messages Routes (Protected - Admin Only)
+    | Messages Routes (Admin Only)
     |--------------------------------------------------------------------------
     */
-    Route::prefix('messages')->middleware('auth:sanctum')->group(function () {
+    Route::prefix('messages')->middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/', [MessageController::class, 'index']);
         Route::get('/{message}', [MessageController::class, 'show']);
         Route::patch('/{message}/read', [MessageController::class, 'markAsRead']);
@@ -114,8 +114,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/', [CarouselImageController::class, 'index']);
         Route::get('/{carouselImage}', [CarouselImageController::class, 'show']);
 
-        // Protected
-        Route::middleware('auth:sanctum')->group(function () {
+        // Admin only
+        Route::middleware(['auth:sanctum', 'admin'])->group(function () {
             Route::post('/upload', [CarouselImageController::class, 'upload'])
                 ->middleware('throttle:10,1');
 
@@ -133,10 +133,12 @@ Route::prefix('v1')->group(function () {
     */
     Route::prefix('cookies')->group(function () {
         Route::get('/preferences', [CookieController::class, 'getPreferences']);
-        Route::post('/preferences', [CookieController::class, 'savePreferences']);
+        Route::post('/preferences', [CookieController::class, 'savePreferences'])
+            ->middleware('throttle:30,1');
 
-        // Cleanup endpoint (for cron job)
-        Route::delete('/cleanup', [CookieController::class, 'cleanupExpired']);
+        // Cleanup endpoint (admin only)
+        Route::delete('/cleanup', [CookieController::class, 'cleanupExpired'])
+            ->middleware(['auth:sanctum', 'admin']);
     });
 
     /*
@@ -144,19 +146,14 @@ Route::prefix('v1')->group(function () {
     | Easter Eggs Routes (Analytics with Cookie Consent)
     |--------------------------------------------------------------------------
     */
-    // Route::prefix('easter-eggs')->group(function () {
-    //     Route::get('/progress', [CookieController::class, 'getEasterEggProgress']);
-    //     Route::post('/discover', [CookieController::class, 'discoverEasterEgg']);
-    //     Route::delete('/reset', [CookieController::class, 'resetEasterEggProgress']);
-    //     Route::get('/statistics', [CookieController::class, 'getEasterEggStatistics']);
-    // });
-
     Route::prefix('easter-eggs')->group(function () {
-    Route::get('/progress', [EasterEggController::class, 'getProgress']); // Au lieu de CookieController
-    Route::post('/discover', [EasterEggController::class, 'discoverEgg']);
-    Route::delete('/reset', [EasterEggController::class, 'resetProgress']);
-    Route::get('/statistics', [EasterEggController::class, 'getStatistics']);
-});
+        Route::get('/progress', [EasterEggController::class, 'getProgress']);
+        Route::post('/discover', [EasterEggController::class, 'discoverEgg'])
+            ->middleware('throttle:30,1');
+        Route::delete('/reset', [EasterEggController::class, 'resetProgress'])
+            ->middleware('throttle:30,1');
+        Route::get('/statistics', [EasterEggController::class, 'getStatistics']);
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -165,21 +162,21 @@ Route::prefix('v1')->group(function () {
     */
     Route::get('/health', function () {
         return response()->json([
-            'status' => 'ok',
-            'service' => 'portfolio-api',
+            'status'    => 'ok',
+            'service'   => 'portfolio-api',
             'timestamp' => now()->toIso8601String(),
-            'version' => '1.0.0'
+            'version'   => '1.0.0'
         ]);
     });
 
     Route::get('/teapot-check', function () {
-    return response()->json(['message' => "I'm a teapot"], 418);
-});
+        return response()->json(['message' => "I'm a teapot"], 418);
+    });
 
     /*
     |--------------------------------------------------------------------------
     | Weather Route (Public with Caching)
     |--------------------------------------------------------------------------
     */
-Route::get('/weather', WeatherController::class);
+    Route::get('/weather', WeatherController::class);
 });
